@@ -1,9 +1,9 @@
-# Quick‑Translate vtt-web-service
+# Ollama Translate Studio
 
 ```
-vtt-web-service/
+Ollama Translate Studio/
 ├── app.py                # Flask + rotas
-├── vtt_tradutor.py       # Funções de leitura/translate (do script anterior)
+├── translate.py          # Funções de leitura/translate (do script anterior)
 ├── templates/
 │   └── index.html        # Página principal
 ├── static/
