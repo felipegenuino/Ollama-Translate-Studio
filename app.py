@@ -58,6 +58,8 @@ def index():
             except Exception as e:
                 translated = f"[Erro] {e}"
 
+    # convenience: direction shorthand for templates (e.g. 'en-pt')
+    direction = f"{source_lang}-{target_lang}"
     return render_template(
         "index.html",
         translated=translated,
