@@ -21,44 +21,80 @@
 
     <form method="post">
       <div class="row mb-3">
-        <div class="col-md-4">
-          <label for="direction" class="form-label">Direção</label>
-          <select id="direction" name="direction" class="form-select">
-            <option value="en-pt" {% if direction=='en-pt' %}selected{% endif %}>English → Português (pt-BR)</option>
-            <option value="pt-en" {% if direction=='pt-en' %}selected{% endif %}>Português (pt-BR) → English</option>
+        <div class="col-md-6">
+          <label for="source_lang" class="form-label">Source language</label>
+          <select id="source_lang" name="source_lang" class="form-select">
+            <optgroup label="Top languages">
+              {% for code, name in languages_top %}
+                <option value="{{ code }}" {% if source_lang==code %}selected{% endif %}>{{ name }} ({{ code }})</option>
+              {% endfor %}
+            </optgroup>
+            <optgroup label="Other languages">
+              {% for code, name in languages_other %}
+                <option value="{{ code }}" {% if source_lang==code %}selected{% endif %}>{{ name }} ({{ code }})</option>
+              {% endfor %}
+            </optgroup>
+          </select>
+        </div>
+
+        <div class="col-md-6">
+          <label for="target_lang" class="form-label">Target language</label>
+          <select id="target_lang" name="target_lang" class="form-select">
+            <optgroup label="Top languages">
+              {% for code, name in languages_top %}
+                <option value="{{ code }}" {% if target_lang==code %}selected{% endif %}>{{ name }} ({{ code }})</option>
+              {% endfor %}
+            </optgroup>
+            <optgroup label="Other languages">
+              {% for code, name in languages_other %}
+                <option value="{{ code }}" {% if target_lang==code %}selected{% endif %}>{{ name }} ({{ code }})</option>
+              {% endfor %}
+            </optgroup>
           </select>
         </div>
       </div>
 
-      <div class="mb-3">
-        <label for="text" id="text-label" class="form-label">Texto em Inglês</label>
-        <textarea
-          id="text"
-          name="text"
-          class="form-control"
-          rows="6"
-          placeholder="Digite ou cole o texto aqui…"
-        >{{ request.form.get('text','') }}</textarea>
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label for="text" id="text-label" class="form-label">Input text</label>
+          <textarea
+            id="text"
+            name="text"
+            class="form-control"
+            rows="12"
+            placeholder="Paste text or VTT content here…"
+          >{{ request.form.get('text','') }}</textarea>
+        </div>
+
+        <div class="col-md-6 mb-3">
+          <label class="form-label">Translation preview</label>
+          <div id="preview" class="border rounded bg-light p-3" style="min-height:220px;">
+            {% if translated %}
+              <div class="d-flex gap-2 mb-2">
+                <button id="copyBtn" class="btn btn-sm btn-outline-secondary">Copy</button>
+                <button id="saveBtn" class="btn btn-sm btn-outline-primary">Save as .vtt</button>
+              </div>
+              <pre id="translated" class="m-0" style="white-space: pre-wrap">{{ translated }}</pre>
+            {% else %}
+              <div id="emptyState" class="d-flex flex-column justify-content-center align-items-center text-muted" style="height:100%;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" class="bi bi-file-earmark-text mb-2" viewBox="0 0 16 16">
+                  <path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5L14 4.5z"/>
+                </svg>
+                <div><strong>No translation yet</strong></div>
+                <div class="small">Paste VTT content or plain text and click Translate</div>
+              </div>
+            {% endif %}
+          </div>
+        </div>
       </div>
 
-      <button id="translateBtn" type="submit" class="btn btn-primary">
-        <span id="translateSpinner" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" style="display:none;"></span>
-        <span id="translateLabel">Traduzir</span>
-      </button>
+      <div class="mt-2">
+        <button id="translateBtn" type="submit" class="btn btn-primary">
+          <span id="translateSpinner" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true" style="display:none;"></span>
+          <span id="translateLabel">Translate</span>
+        </button>
+      </div>
     </form>
-
-    {% if translated %}
-    <hr />
-    <h4>Tradução</h4>
-
-    <div class="d-flex gap-2 mb-2">
-      <button id="copyBtn" class="btn btn-outline-secondary">Copiar</button>
-      <button id="saveBtn" class="btn btn-outline-primary">Salvar como .vtt</button>
-    </div>
-
-    <pre id="translated" class="bg-light p-3 rounded" style="white-space: pre-wrap">{{ translated }}</pre>
-
-    {% endif %}
 
     <script>
       // Atualiza o label do textarea conforme a direção selecionada
@@ -93,10 +129,12 @@
           });
         }
 
-        // Botão copiar
+        // Elements
         const copyBtn = document.getElementById('copyBtn');
         const saveBtn = document.getElementById('saveBtn');
         const translatedEl = document.getElementById('translated');
+        const sourceSelect = document.getElementById('source_lang');
+        const targetSelect = document.getElementById('target_lang');
         if(copyBtn){
           copyBtn.addEventListener('click', async function(){
             try{
@@ -121,13 +159,70 @@
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'translation.vtt';
+            const tgt = (targetSelect && targetSelect.value) ? targetSelect.value : 'unknown';
+            a.download = `translation_${tgt}.vtt`;
             document.body.appendChild(a);
             a.click();
             a.remove();
             URL.revokeObjectURL(url);
           });
         }
+
+        // Persist language selectors in localStorage
+        function persistLangs(){
+          try{
+            localStorage.setItem('vtt_source_lang', sourceSelect.value);
+            localStorage.setItem('vtt_target_lang', targetSelect.value);
+          }catch(e){/* ignore */}
+        }
+        sourceSelect.addEventListener('change', persistLangs);
+        targetSelect.addEventListener('change', persistLangs);
+
+        // Load saved preferences
+        try{
+          const savedSrc = localStorage.getItem('vtt_source_lang');
+          const savedTgt = localStorage.getItem('vtt_target_lang');
+          if(savedSrc){ sourceSelect.value = savedSrc; }
+          if(savedTgt){ targetSelect.value = savedTgt; }
+        }catch(e){/* ignore */}
+
+        // Auto-detect language on paste (will set source select only if no saved preference)
+        const detectedBadge = document.createElement('div');
+        detectedBadge.id = 'detectedBadge';
+        detectedBadge.className = 'small text-muted mt-1';
+        sourceSelect.parentElement.appendChild(detectedBadge);
+
+        document.getElementById('text').addEventListener('paste', function(ev){
+          // read pasted content
+          const clipboardData = (ev.clipboardData || window.clipboardData);
+          const pasted = clipboardData.getData('Text');
+          if(!pasted || pasted.length < 20) return; // too short
+
+          // If user already saved a source preference, do not auto-override; show suggestion instead
+          const hasSaved = !!localStorage.getItem('vtt_source_lang');
+
+          fetch('/detect-language', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({text: pasted})
+          }).then(r => r.json()).then(j => {
+            if(!j.ok) return;
+            const code = j.code;
+            detectedBadge.innerHTML = `Detected: <strong>${j.display}</strong> (${code})` + (hasSaved ? ' — <a href="#" id="useDetected">use</a>' : '');
+            if(!hasSaved){
+              sourceSelect.value = code;
+            } else {
+              const useLink = document.getElementById('useDetected');
+              if(useLink){
+                useLink.addEventListener('click', function(e){
+                  e.preventDefault();
+                  sourceSelect.value = code;
+                  persistLangs();
+                  detectedBadge.textContent = `Detected and set: ${j.display} (${code})`;
+                });
+              }
+            }
+          }).catch(()=>{});
+        });
       });
     </script>
   </body>

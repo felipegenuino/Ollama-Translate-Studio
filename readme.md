@@ -222,6 +222,15 @@ Open http://localhost:5000 in your browser and test.
 
 ---
 
+## 🌐 Multi-language support & auto-detection
+
+- The app now supports many languages (top 7 worldwide are available by default) and several additional common languages.
+- When you paste text into the input area, the server will attempt to detect the language and suggest it as the source language. If you previously selected a source language, detection will show a suggestion that you can apply manually.
+- Selected source/target languages persist across sessions (stored in localStorage) so you typically need to pick languages only once.
+- The UI is responsive: on wider screens the input and translated preview are shown side-by-side; the preview shows an empty state until a translation is available.
+
+---
+
 ## 🖥️ Nova UI: direção, copiar e salvar
 
 - A interface agora permite escolher a direção da tradução (English → Português (pt-BR) ou Português → English).

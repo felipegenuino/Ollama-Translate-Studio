@@ -1,6 +1,27 @@
-from flask import Flask, request, render_template
+from flask import Flask, request, render_template, jsonify
 from translate import translate_text, translate_vtt_content   # Funções de tradução
 import re
+
+# Top 7 most used languages (by number of speakers) and additional common languages
+LANGUAGES_TOP = [
+    ("zh-CN", "Chinese (Simplified)"),
+    ("es", "Spanish"),
+    ("en", "English"),
+    ("hi", "Hindi"),
+    ("ar", "Arabic"),
+    ("bn", "Bengali"),
+    ("pt-BR", "Portuguese (Brazil)")
+]
+
+LANGUAGES_OTHER = [
+    ("fr", "French"),
+    ("de", "German"),
+    ("it", "Italian"),
+    ("ja", "Japanese"),
+    ("ko", "Korean"),
+    ("ru", "Russian"),
+    ("ar", "Arabic")
+]
 
 app = Flask(__name__)
 
@@ -34,7 +55,44 @@ def index():
             except Exception as e:
                 translated = f"[Erro] {e}"
 
-    return render_template("index.html", translated=translated, direction=direction)
+    return render_template(
+        "index.html",
+        translated=translated,
+        direction=direction,
+        source_lang=source_lang,
+        target_lang=target_lang,
+        languages_top=LANGUAGES_TOP,
+        languages_other=LANGUAGES_OTHER,
+    )
+
+
+@app.route('/detect-language', methods=['POST'])
+def detect_language():
+    """Detect language for pasted text. Returns a language code suggestion and display name."""
+    data = request.get_json(silent=True) or {}
+    text = data.get('text', '')
+    if not text or len(text.strip()) < 3:
+        return jsonify({'ok': False, 'error': 'text too short'}), 400
+
+    # lightweight detection (uses langdetect)
+    try:
+        from langdetect import detect
+        code = detect(text)
+    except Exception:
+        return jsonify({'ok': False, 'error': 'detection failed'}), 500
+
+    # Normalize some codes
+    mapping = {
+        'zh': 'zh-CN',
+        'pt': 'pt-BR',
+    }
+    code_norm = mapping.get(code, code)
+
+    # friendly name lookup
+    name_map = {k: v for k, v in LANGUAGES_TOP + LANGUAGES_OTHER}
+    display = name_map.get(code_norm, code_norm)
+
+    return jsonify({'ok': True, 'code': code_norm, 'display': display})
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

@@ -2,6 +2,10 @@
 import os
 import re
 import ollama
+from langdetect import detect, DetectorFactory, LangDetectException
+
+# deterministic results
+DetectorFactory.seed = 0
 
 # 1️⃣ Defina a URL do Ollama (ou deixe a variável de ambiente já configurada)
 OLLAMA_URL = "http://127.0.0.1:11434"
@@ -14,7 +18,7 @@ os.environ["OLLAMA_HOST"] = OLLAMA_URL
 # from ollama import Ollama
 # ollama_client = Ollama(url=OLLAMA_URL)
 
-def translate_text(text: str, direction: str = "en-pt", model: str = "llama3") -> str:
+def translate_text(text: str, source_lang: str = "auto", target_lang: str = "pt-BR", model: str = "llama3") -> str:
     """
     Envia `text` para Ollama e devolve a resposta (texto traduzido).
 
@@ -23,15 +27,15 @@ def translate_text(text: str, direction: str = "en-pt", model: str = "llama3") -
     :return: Texto traduzido para Português (pt-BR).
     """
     # 3️⃣ Use o método `chat` **sem** o parâmetro `url`
-    # Defina a instrução do sistema dependendo da direção selecionada
-    if direction == "en-pt":
+    # Build system prompt based on source/target languages
+    if source_lang and source_lang != "auto":
         system_prompt = (
-            "You are a helpful assistant that translates English to Brazilian Portuguese (pt-BR) "
+            f"You are a helpful assistant that translates from {source_lang} to {target_lang} "
             "and returns ONLY the translated text, without explanations or extra commentary."
         )
     else:
         system_prompt = (
-            "You are a helpful assistant that translates Portuguese (pt-BR) to English "
+            f"You are a helpful assistant that translates to {target_lang} "
             "and returns ONLY the translated text, without explanations or extra commentary."
         )
 
@@ -105,7 +109,13 @@ def translate_vtt_content(vtt_text: str, direction: str = "en-pt", model: str = 
                 if cue_text == "":
                     translated = ""
                 else:
-                    translated = translate_text(cue_text, direction=direction, model=model).strip()
+                    # For VTT we prefer explicit source/target. Accept 'src-tgt' shorthand but otherwise
+                    # translate using target_lang if provided in the string.
+                    if isinstance(direction, str) and '-' in direction:
+                        src, tgt = direction.split('-', 1)
+                        translated = translate_text(cue_text, source_lang=src, target_lang=tgt, model=model).strip()
+                    else:
+                        translated = translate_text(cue_text, source_lang="auto", target_lang=direction, model=model).strip()
 
                 # distribui a tradução em múltiplas linhas seguindo sentenças, quando possível
                 if original_count > 1:
